@@ -29,7 +29,7 @@ app.post('/produto', async (req, res) => {
     }
 });
 
-app.get('/', async(req , res) => {
+app.get('/produto', async(req , res) => {
     try {
         const produtos = await prisma.usuario.findMany();
         res.json(produtos);
