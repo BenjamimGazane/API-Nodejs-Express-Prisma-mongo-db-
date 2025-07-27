@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 const prisma = new PrismaClient();
 
-app.post('/produto', async (req, res) => {
+app.post('/https://api-nodejs-express-prisma-mongo-db.onrender.com', async (req, res) => {
     try {
         const produto = await prisma.usuario.create({
             data: {
@@ -25,7 +25,7 @@ app.post('/produto', async (req, res) => {
     }
 });
 
-app.get('/produto', async(req , res) => {
+app.get('/https://api-nodejs-express-prisma-mongo-db.onrender.com', async(req , res) => {
     try {
         const produtos = await prisma.usuario.findMany();
         res.json(produtos);
@@ -34,7 +34,7 @@ app.get('/produto', async(req , res) => {
     }
 });
 
-app.put('/produto/:id', async (req, res) => {
+app.put('/https://api-nodejs-express-prisma-mongo-db.onrender.com/:id', async (req, res) => {
   const { nome, preco } = req.body;
     
   try {
@@ -49,7 +49,7 @@ app.put('/produto/:id', async (req, res) => {
   }
 });
 
-app.delete('/produto/:id', async (req, res) => {
+app.delete('/https://api-nodejs-express-prisma-mongo-db.onrender.com/:id', async (req, res) => {
     try {
         const produto = await prisma.usuario.delete({
             where: { id: req.params.id }
