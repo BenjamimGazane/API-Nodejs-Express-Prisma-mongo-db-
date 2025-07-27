@@ -60,7 +60,3 @@ app.delete('/produto/:id', async (req, res) => {
         res.status(500).json({ erro: 'Erro ao deletar produto' });
     }
 });
-
-app.listen(3000, () => {
-  console.log('Servidor rodando na porta 3000');
-});
