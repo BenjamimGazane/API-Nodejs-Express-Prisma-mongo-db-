@@ -2,9 +2,13 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';  
 import cors from 'cors';
 
-const PORT = process.env.PORT || 3000;
 const app = express();
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
 app.use(cors());
 app.use(express.json());
 const prisma = new PrismaClient();
