@@ -1,150 +1,120 @@
-import { use, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { listar } from "../utils/formUtils";
-import { excluir } from "../utils/formUtils";
+import express from 'express';
+import { PrismaClient } from '@prisma/client'; 
+import  { MongoClient } from 'mongodb';
+import cors from 'cors';
 
+const PORT = process.env.PORT || 3000;
+const app = express();
+const client = new MongoClient("mongodb+srv://benj2:pER1waJdCGKdYhED@benj2.jt75d69.mongodb.net/Usuario?retryWrites=true&w=majority&appName=benj2")
+app.use(cors());
+app.use(express.json());
 
-function Home() {
-   const [mensagens, setMensagens] = useState([]);
+const prisma = new PrismaClient();
 
-    const Atualizar = () => {
-         sessionStorage.removeItem("produtossalvos");
-              dados(setListaProdutos)
-    }
+let changeStream;
+const clients = [];
 
-    useEffect(() => {
-    const evento = new EventSource("https://api-nodejs-express-prisma-mongo-db.onrender.com/stream");
+// Função para iniciar o Change Stream e enviar eventos SSE
+async function startChangeStream() {
+  try {
+    await client.connect();
+    const db = client.db("Usuario"); // nome do DB
+    const collection = db.collection("Usuario"); // coleção MongoDB
 
-    evento.onmessage = (e) => {
-      try {
-        Atualizar()
-      } catch {
-        console.log("Mensagem inválida", e.data);
+    // Watch só inserções
+    changeStream = collection.watch([
+      { $match: { operationType: { $in: ["insert", "update", "delete"] } } }
+    ]);
+
+    changeStream.on("change", (change) => {
+      const data = JSON.stringify({ sinal: "mudanca", tipo: change.operationType });
+
+      clients.forEach(res => {
+        res.write(`data: ${data}\n\n`);
+      });
+    });
+
+    console.log("Change stream ativo, escutando inserts no MongoDB...");
+  } catch (error) {
+    console.error("Erro no Change Stream:", error);
+  }
+}
+
+// Endpoint SSE para clientes se conectarem
+app.get("/stream", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  // Conexão inicial
+  res.write(": conectado\n\n");
+
+  // Envia ping a cada 15 segundos para manter conexão aberta
+  const keepAlive = setInterval(() => {
+    res.write(": keep-alive\n\n");
+  }, 15000);
+
+  clients.push(res);
+
+  req.on("close", () => {
+    clearInterval(keepAlive);  // limpa o ping quando cliente desconectar
+    const index = clients.indexOf(res);
+    if (index !== -1) clients.splice(index, 1);
+  });
+});
+
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+    startChangeStream();
+  });
+
+//endpoints CRUD Prisma
+app.post('/produto', async (req, res) => {
+  try {
+    const produto = await prisma.usuario.create({
+      data: {
+        nome: req.body.nome,
+        preco: req.body.preco
       }
-    };
+    });
+    res.status(201).json({ mensagem: 'Produto criado com sucesso!', produto });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ erro: 'Erro ao criar produto' });
+  }
+});
 
-    evento.onerror = () => {
-      console.error("Erro na conexão SSE");
-      evento.close();
-    };
+app.get('/produto', async(req , res) => {
+  try {
+    const produtos = await prisma.usuario.findMany();
+    res.json(produtos);
+  } catch (error) {
+    res.status(500).json({ erro: "Erro ao buscar produtos" });
+  }
+});
 
-    return () => {
-      evento.close();
-    };
-      }, []);
+app.put('/produto/:id', async (req, res) => {
+  const { nome, preco } = req.body;
+  try {
+    const produto = await prisma.usuario.update({
+      where: { id: req.params.id },
+      data: { nome, preco }
+    });
+    res.json({ mensagem: 'Produto atualizado com sucesso!', produto });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ erro: 'Erro ao atualizar produto' });
+  }
+});
 
-    // Estado para armazenar a lista de produtos
-    const [lista_produtos, setListaProdutos] = useState([]);
-
-    const dados = async (set) => {
-      const dadossalvos = JSON.parse(sessionStorage.getItem("produtossalvos"));
-      if(dadossalvos){
-        setListaProdutos(dadossalvos);
-      }
-      else {
-        const resposta = await listar()
-        sessionStorage.setItem("produtossalvos", JSON.stringify(resposta.data));
-        setListaProdutos(resposta.data);
-      }
-      };
-
-    useEffect(() => {
-       dados(setListaProdutos);
-    },[])
-
-
-  return (
-    <>
-      <style>{`
-        body {
-          background-color: #f8f9fa;
-        }
-        .hero {
-          background: linear-gradient(135deg, #0d6efd, #6610f2);
-          color: white;
-          padding: 2rem;
-          border-radius: 0.5rem;
-          margin-bottom: 2rem;
-          text-align: center;
-        }
-        .btn-group-custom {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          justify-content: center;
-        }
-        .table td, .table th {
-            white-space: nowrap;
-            max-width: 150px;
-            overflow: hidden; 
-        }
-      `}</style>
-
-      <div className="container mt-4">
-        <div className="hero">
-          <h2 className="mb-1">📦 Sistema de Gestão de Produtos</h2>
-          <p className="mb-0">Gerencie seus produtos de forma simples e rápida</p>
-        </div>
-
-        {/* Botões principais */}
-        <div className="btn-group-custom mb-4">
-          <Link to = "/criar" className="btn btn-success">
-            <i className="bi bi-plus-circle"></i> Criar Produto
-          </Link>
-          <button className="btn btn-primary" onClick={() => 
-                Atualizar()  
-            } >
-            <i className="bi bi-arrow-repeat"></i> Atualizar
-          </button>
-        </div>
-
-        {/* Tabela de produtos */}
-        <div className="table-responsive">
-          <table className="table table-hover table-striped shadow-sm bg-white rounded">
-            <thead className="table-primary">
-              <tr>
-                <th>ID</th>
-                <th>Nome</th>
-                <th>Preço</th>
-                <th className="text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista_produtos.map(produto =>{
-                return (
-                  <tr key={produto.id}>
-                    <td>{produto.id}</td>
-                    <td>{produto.nome}</td>
-                    <td>Mzn {Number(produto.preco).toFixed(2)}</td>
-                    <td className="text-center">
-                      <Link to ="/editar" className="btn btn-warning btn-sm" onClick={
-                        () => localStorage.setItem("produtoeditado", JSON.stringify(produto))
-                      }>
-                        <i className="bi bi-pencil"></i> Editar
-                      </Link>
-                      <button className="btn btn-danger btn-sm ms-2" onClick={async() => {
-                          try {
-                            excluir(produto.id);
-                            alert("Produto excluído com sucesso!");
-                            localStorage.removeItem("produtossalvos");
-                            dados(setListaProdutos); 
-                          } catch (error) {
-                            console.error("Erro ao excluir produto:", error);
-                          }
-                      }}>
-                        <i className="bi bi-trash"></i> Excluir
-                      </button>
-                    </td>
-                  </tr>
-                )
-              }
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </>
-  );
-};
-
-export default Home;
+app.delete('/produto/:id', async (req, res) => {
+  try {
+    const produto = await prisma.usuario.delete({
+      where: { id: req.params.id }
+    });
+    res.json({ mensagem: 'Produto deletado com sucesso!', produto });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ erro: 'Erro ao deletar produto' });
+  }
+});
