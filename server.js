@@ -1,11 +1,13 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client'; 
 import  { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
 import cors from 'cors';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
-const client = new MongoClient("mongodb+srv://benj2:pER1waJdCGKdYhED@benj2.jt75d69.mongodb.net/Usuario?retryWrites=true&w=majority&appName=benj2")
+dotenv.config;
+const client = new MongoClient(process.env.DATABASE_URL);
 app.use(cors());
 app.use(express.json());
 
